@@ -9,6 +9,6 @@ routeTapeng.get('/get', tapengController.getAllTapeng);
 routeTapeng.get('/get/:id', tapengController.getTapengById);
 routeTapeng.post('/create', tapengController.createTapeng);
 routeTapeng.put('/update/:id', tapengController.updateTapeng);
-routeTapeng.delete('/delete/:id', tapengController.deleteTapeng);
+// routeTapeng.delete('/delete/:id', tapengController.deleteTapeng);
 
 module.exports = routeTapeng;

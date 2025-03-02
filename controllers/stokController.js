@@ -1,18 +1,28 @@
-const { stok } = require('../models');
+const { stok, tambahPengeluaran } = require('../models');
 
 // Create stok
 exports.createStok = async(req, res) => {
     const { namaBarang, stock, hargaJual, hargaBeli } = req.body;
     try {
+        // Tambahkan stok baru ke tabel stok
         const createStok = await stok.create({
             namaBarang,
             stock,
             hargaBeli,
             hargaJual
         });
+
+        // Setelah stok dibuat, tambahkan ke tabel tambahPengeluaran
+        await tambahPengeluaran.create({
+            stokId: createStok.id, // ID stok yang baru dibuat
+            namaBarang: createStok.namaBarang,
+            jumlah: createStok.stock, // Bisa diisi sesuai kebutuhan
+            hargaBeli: createStok.hargaBeli
+        });
+
         return res.status(201).json({
             success: true,
-            message: 'Data stok berhasil ditambahkan!',
+            message: 'Data stok dan pengeluaran berhasil ditambahkan!',
             data: createStok
         });
     } catch (error) {

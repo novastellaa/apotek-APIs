@@ -80,7 +80,15 @@ exports.createTapeng = async(req, res) => {
 // Get All pengeluaran
 exports.getAllTapeng = async(req, res) => {
     try {
-        const getAllTapeng = await tambahPengeluaran.findAll();
+        const getAllTapeng = await tambahPengeluaran.findAll({
+            attributes: ['id', 'id_user', 'tanggal', 'id_stock', 'id_kategori', 'jumlah', 'totalHarga'],
+        });
+        if (getAllTapeng.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Tidak ada data pengeluaran yang ditemukan!'
+            });
+        }
         return res.status(200).json({
             success: true,
             message: 'Data berhasil diambil!',
@@ -100,8 +108,10 @@ exports.getAllTapeng = async(req, res) => {
 exports.getTapengById = async(req, res) => {
     const { id } = req.params;
     try {
-        const getTapengById = await tambahPengeluaran.findOne({ where: { id } });
-
+        const getTapengById = await tambahPengeluaran.findOne({
+            where: { id },
+            attributes: ['id', 'id_user', 'tanggal', 'id_kategori', 'id_stock', 'jumlah', 'totalHarga', 'createdAt', 'updatedAt']
+        });
         if (!getTapengById) {
             return res.status(404).json({
                 success: false,
@@ -162,28 +172,28 @@ exports.updateTapeng = async(req, res) => {
 };
 
 // Delete pengeluaran
-exports.deleteTapeng = async(req, res) => {
-    const { id } = req.params;
-    try {
-        const TapengData = await tambahPengeluaran.findOne({ where: { id } });
+// exports.deleteTapeng = async(req, res) => {
+//     const { id } = req.params;
+//     try {
+//         const TapengData = await tambahPengeluaran.findOne({ where: { id }, attributes: ['id', 'id_user', 'tanggal', 'id_kategori', 'id_stock', 'jumlah', 'totalHarga', 'createdAt', 'updatedAt'] });
 
-        if (!TapengData) {
-            return res.status(404).json({
-                success: false,
-                message: `Data dengan ID ${id} tidak ditemukan!`
-            });
-        }
-        await tambahPengeluaran.destroy({ where: { id } });
-        return res.status(200).json({
-            success: true,
-            message: 'Data berhasil dihapus!',
-            deletedData: TapengData
-        });
-    } catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: 'Gagal menghapus data!',
-            error: error.message
-        });
-    }
-};
+//         if (!TapengData) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: `Data dengan ID ${id} tidak ditemukan!`
+//             });
+//         }
+//         await tambahPengeluaran.destroy({ where: { id }, attributes: ['id', 'id_user', 'tanggal', 'id_kategori', 'id_stock', 'jumlah', 'totalHarga', 'createdAt', 'updatedAt'] });
+//         return res.status(200).json({
+//             success: true,
+//             message: 'Data berhasil dihapus!',
+//             deletedData: TapengData
+//         });
+//     } catch (error) {
+//         return res.status(500).json({
+//             success: false,
+//             message: 'Gagal menghapus data!',
+//             error: error.message
+//         });
+//     }
+// };
