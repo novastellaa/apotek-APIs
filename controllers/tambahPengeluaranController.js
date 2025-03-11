@@ -1,4 +1,7 @@
-const { tambahPengeluaran, stok } = require('../models');
+const PDFDocument = require('pdfkit');
+const fs = require('fs');
+const path = require('path');
+const { tambahPengeluaran, stok, user, kategori } = require('../models');
 
 // Create pengeluaran & update stok
 exports.createTapeng = async(req, res) => {
@@ -168,6 +171,71 @@ exports.updateTapeng = async(req, res) => {
             message: 'Gagal memperbarui data!',
             error: error.message
         });
+    }
+};
+
+exports.exportTapengToPDF = async(req, res) => {
+    try {
+        const pengeluaran = await tambahPengeluaran.findAll({
+            include: [
+                { model: user, attributes: ['namaPengguna'] },
+                { model: stok, attributes: ['namaBarang'] },
+                { model: kategori, attributes: ['namaKategori'] }
+            ],
+            attributes: ['id', 'tanggal', 'jumlah', 'totalHarga'],
+            order: [
+                ['tanggal', 'DESC']
+            ]
+        });
+
+        if (pengeluaran.length === 0) {
+            return res.status(404).json({ success: false, message: 'Tidak ada data pengeluaran!' });
+        }
+
+        // Nama file PDF
+        const fileName = `Laporan_Pengeluaran_${Date.now()}.pdf`;
+        const filePath = path.join(__dirname, '../public/reports', fileName);
+
+        // Buat direktori jika belum ada
+        if (!fs.existsSync(path.dirname(filePath))) {
+            fs.mkdirSync(path.dirname(filePath), { recursive: true });
+        }
+
+        const doc = new PDFDocument({ margin: 30 });
+        const stream = fs.createWriteStream(filePath);
+        doc.pipe(stream);
+
+        // Header PDF
+        doc.fontSize(18).text('Laporan Pengeluaran', { align: 'center' });
+        doc.moveDown();
+
+        // Tambahkan tabel laporan
+        doc.fontSize(12);
+        pengeluaran.forEach((item, index) => {
+            doc.text(`ID: ${item.id}`);
+            doc.text(`Tanggal: ${item.tanggal}`);
+            doc.text(`Nama Barang: ${item.stok?.namaBarang || '-'}`);
+            doc.text(`Kategori: ${item.kategori?.namaKategori || '-'}`);
+            doc.text(`Jumlah: ${item.jumlah}`);
+            doc.text(`Total Harga: Rp ${item.totalHarga}`);
+            doc.moveDown();
+            if (index < pengeluaran.length - 1) doc.moveDown();
+        });
+
+        doc.end();
+
+        stream.on('finish', () => {
+            res.download(filePath, fileName, (err) => {
+                if (err) {
+                    console.error(err);
+                    res.status(500).json({ success: false, message: 'Gagal mengunduh laporan!' });
+                }
+                fs.unlinkSync(filePath); // Hapus file setelah diunduh
+            });
+        });
+
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Gagal mengekspor PDF!', error: error.message });
     }
 };
 
