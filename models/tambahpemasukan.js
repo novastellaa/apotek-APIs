@@ -23,6 +23,7 @@ module.exports = (sequelize, DataTypes) => {
         tanggal: DataTypes.DATE,
         id_stock: {
             type: DataTypes.INTEGER,
+            field: 'id_stock',
             references: {
                 model: 'stok',
                 key: 'id',

@@ -1,4 +1,7 @@
-const { tambahPengeluaran, stok } = require('../models');
+const PDFDocument = require('pdfkit');
+const fs = require('fs');
+const path = require('path');
+const { tambahPengeluaran, stok, user, kategori } = require('../models');
 
 // Create pengeluaran & update stok
 exports.createTapeng = async(req, res) => {
@@ -80,7 +83,15 @@ exports.createTapeng = async(req, res) => {
 // Get All pengeluaran
 exports.getAllTapeng = async(req, res) => {
     try {
-        const getAllTapeng = await tambahPengeluaran.findAll();
+        const getAllTapeng = await tambahPengeluaran.findAll({
+            attributes: ['id', 'id_user', 'tanggal', 'id_stock', 'id_kategori', 'jumlah', 'totalHarga'],
+        });
+        if (getAllTapeng.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Tidak ada data pengeluaran yang ditemukan!'
+            });
+        }
         return res.status(200).json({
             success: true,
             message: 'Data berhasil diambil!',
@@ -100,8 +111,10 @@ exports.getAllTapeng = async(req, res) => {
 exports.getTapengById = async(req, res) => {
     const { id } = req.params;
     try {
-        const getTapengById = await tambahPengeluaran.findOne({ where: { id } });
-
+        const getTapengById = await tambahPengeluaran.findOne({
+            where: { id },
+            attributes: ['id', 'id_user', 'tanggal', 'id_kategori', 'id_stock', 'jumlah', 'totalHarga', 'createdAt', 'updatedAt']
+        });
         if (!getTapengById) {
             return res.status(404).json({
                 success: false,
@@ -161,29 +174,94 @@ exports.updateTapeng = async(req, res) => {
     }
 };
 
-// Delete pengeluaran
-exports.deleteTapeng = async(req, res) => {
-    const { id } = req.params;
+exports.exportTapengToPDF = async(req, res) => {
     try {
-        const TapengData = await tambahPengeluaran.findOne({ where: { id } });
+        const pengeluaran = await tambahPengeluaran.findAll({
+            include: [
+                { model: user, attributes: ['namaPengguna'] },
+                { model: stok, attributes: ['namaBarang'] },
+                { model: kategori, attributes: ['namaKategori'] }
+            ],
+            attributes: ['id', 'tanggal', 'jumlah', 'totalHarga'],
+            order: [
+                ['tanggal', 'DESC']
+            ]
+        });
 
-        if (!TapengData) {
-            return res.status(404).json({
-                success: false,
-                message: `Data dengan ID ${id} tidak ditemukan!`
-            });
+        if (pengeluaran.length === 0) {
+            return res.status(404).json({ success: false, message: 'Tidak ada data pengeluaran!' });
         }
-        await tambahPengeluaran.destroy({ where: { id } });
-        return res.status(200).json({
-            success: true,
-            message: 'Data berhasil dihapus!',
-            deletedData: TapengData
+
+        // Nama file PDF
+        const fileName = `Laporan_Pengeluaran_${Date.now()}.pdf`;
+        const filePath = path.join(__dirname, '../public/reports', fileName);
+
+        // Buat direktori jika belum ada
+        if (!fs.existsSync(path.dirname(filePath))) {
+            fs.mkdirSync(path.dirname(filePath), { recursive: true });
+        }
+
+        const doc = new PDFDocument({ margin: 30 });
+        const stream = fs.createWriteStream(filePath);
+        doc.pipe(stream);
+
+        // Header PDF
+        doc.fontSize(18).text('Laporan Pengeluaran', { align: 'center' });
+        doc.moveDown();
+
+        // Tambahkan tabel laporan
+        doc.fontSize(12);
+        pengeluaran.forEach((item, index) => {
+            doc.text(`ID: ${item.id}`);
+            doc.text(`Tanggal: ${item.tanggal}`);
+            doc.text(`Nama Barang: ${item.stok?.namaBarang || '-'}`);
+            doc.text(`Kategori: ${item.kategori?.namaKategori || '-'}`);
+            doc.text(`Jumlah: ${item.jumlah}`);
+            doc.text(`Total Harga: Rp ${item.totalHarga}`);
+            doc.moveDown();
+            if (index < pengeluaran.length - 1) doc.moveDown();
         });
+
+        doc.end();
+
+        stream.on('finish', () => {
+            res.download(filePath, fileName, (err) => {
+                if (err) {
+                    console.error(err);
+                    res.status(500).json({ success: false, message: 'Gagal mengunduh laporan!' });
+                }
+                fs.unlinkSync(filePath); // Hapus file setelah diunduh
+            });
+        });
+
     } catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: 'Gagal menghapus data!',
-            error: error.message
-        });
+        res.status(500).json({ success: false, message: 'Gagal mengekspor PDF!', error: error.message });
     }
 };
+
+// Delete pengeluaran
+// exports.deleteTapeng = async(req, res) => {
+//     const { id } = req.params;
+//     try {
+//         const TapengData = await tambahPengeluaran.findOne({ where: { id }, attributes: ['id', 'id_user', 'tanggal', 'id_kategori', 'id_stock', 'jumlah', 'totalHarga', 'createdAt', 'updatedAt'] });
+
+//         if (!TapengData) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: `Data dengan ID ${id} tidak ditemukan!`
+//             });
+//         }
+//         await tambahPengeluaran.destroy({ where: { id }, attributes: ['id', 'id_user', 'tanggal', 'id_kategori', 'id_stock', 'jumlah', 'totalHarga', 'createdAt', 'updatedAt'] });
+//         return res.status(200).json({
+//             success: true,
+//             message: 'Data berhasil dihapus!',
+//             deletedData: TapengData
+//         });
+//     } catch (error) {
+//         return res.status(500).json({
+//             success: false,
+//             message: 'Gagal menghapus data!',
+//             error: error.message
+//         });
+//     }
+// };
